@@ -1,0 +1,45 @@
+#!/usr/bin/python
+
+#
+# Vertically scroll words that fit using fixed-width
+# font on the display
+#
+# Copyright 2014 by John K. Hinsdale <hin@alma.com>
+# Use under BSD license with above copyright notice(s) retained.
+
+import os
+ARDUINO_BASE = os.environ.get("ARDUINO_BASE")
+import sys
+sys.path.extend([ARDUINO_BASE + "/py", ARDUINO_BASE + "/font"])
+
+from rgb_matrix import *
+import time
+import fileinput
+
+def main():
+    cmd_BLANK_SCREEN()
+    words = ["", "", "", ""]
+    blue = [0, 0, 1]
+    black = [0, 0, 0]
+    for line in fileinput.input("/usr/share/dict/words"):
+        word = line.strip()
+        if len(word) > 5:
+            continue
+        
+        # shift everything up
+        for i in range(3):
+            words[i] = words[i+1]
+        words[3] = word
+
+        # Print words
+        s = ""
+        for i in range(4):
+            s += words[i]
+            for p in range(5 - len(words[i])):
+                s += " "
+        # print "[" + s + "]"
+        cmd_WRITE_TEXT(blue, black, 0, 0, s)
+        time.sleep(0.300)
+
+# Do it    
+main()

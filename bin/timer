@@ -1,0 +1,25 @@
+#!/usr/bin/python
+
+# Utility to set the timer delays to test dimming the display.  Too
+# long intervals will cause flickery behavior.  Too short intervals
+# will use up the CPU, and also make the LEDs too bright.
+#
+# Copyright 2014 by John K. Hinsdale <hin@alma.com>
+# Use under BSD license with above copyright notice(s) retained.
+
+import os
+ARDUINO_BASE = os.environ.get("ARDUINO_BASE")
+import sys
+sys.path.extend([ARDUINO_BASE + "/py", ARDUINO_BASE + "/font"])
+
+import time
+import fileinput
+from rgb_matrix import *
+from font_util import *
+
+def main():
+    cmd_SET_TIMER_DELAYS([260, 580, 1220, 15000])
+    cmd_FILL_SCREEN([1, 0, 0])
+
+# Do it    
+main()

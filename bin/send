@@ -1,0 +1,38 @@
+#!/usr/bin/python
+
+# Send an RGB triple to the serial port as three 8-bit bytes
+#
+# Copyright 2014 by John K. Hinsdale <hin@alma.com>
+# Use under BSD license with above copyright notice(s) retained.
+
+import os
+ARDUINO_BASE = os.environ.get("ARDUINO_BASE")
+import sys
+sys.path.extend([ARDUINO_BASE + "/py"])
+
+from rgb_matrix import *
+
+def main():
+    args = sys.argv[1:]
+    if args:
+        ser = get_serial()
+        print "Writing " + str(args) + " to " + ser.name + " ..."
+        bytes = []
+        for i in args:
+            # Send a string
+            if i >= "A" and i <= "Z" or i >= "a" and i <= "z":
+                bytes.append(len(i))
+                for c in i:
+                    bytes.append(ord(c))
+            elif i.startswith("0i"):
+                i = i[2:]
+                val = int(i)
+                bytes.append(int(val / 256))
+                bytes.append(val % 256)
+            else:
+                bytes.append(int(i))
+        write_bytes(ser, bytes)
+        ser.close()
+
+# Do it    
+main()

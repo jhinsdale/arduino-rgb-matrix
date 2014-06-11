@@ -1,0 +1,32 @@
+#!/usr/bin/python
+
+# Flood the display with text
+#
+# Copyright 2014 by John K. Hinsdale <hin@alma.com>
+# Use under BSD license with above copyright notice(s) retained.
+
+import os
+ARDUINO_BASE = os.environ.get("ARDUINO_BASE")
+import sys
+sys.path.extend([ARDUINO_BASE + "/py"])
+
+from rgb_matrix import *
+import time
+
+def main():
+    colors = [
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+        [1, 1, 0],
+        ]
+
+    black = [0, 0, 0]
+
+    cmd_BLANK_SCREEN()
+    for i in range(99999):
+        color = [i & 0x1, i & 0x2, i & 0x4]
+        cmd_WRITE_TEXT(colors[i%4], black, 0, i % 4 * 8, str(i))
+        time.sleep(0.020)
+# Do it    
+main()

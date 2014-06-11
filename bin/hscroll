@@ -1,0 +1,50 @@
+#!/usr/bin/python
+
+# Scroll 4 lines of fixed-width text on the display
+#
+# Copyright 2014 by John K. Hinsdale <hin@alma.com>
+# Use under BSD license with above copyright notice(s) retained.
+
+import os
+ARDUINO_BASE = os.environ.get("ARDUINO_BASE")
+import sys
+sys.path.extend([ARDUINO_BASE + "/py", ARDUINO_BASE + "/font"])
+
+import time
+import fileinput
+from rgb_matrix import *
+
+def main():
+    cmd_BLANK_SCREEN()
+    
+    colors = [ [1, 0, 0],
+               [0, 1, 0],
+               [0, 0, 1],
+               [1, 1, 0],
+               ]
+    
+    msgs = [ "This is a line of text",
+             "The second line of text with fixed-width font",
+             "Only five letters fit on the display at one time",
+             "The speed of scroll is not too bad",
+             ]
+    offsets = [0, 0, 0, 0]
+    for i in range(4):
+        msgs[i] += "  " + msgs[i][0:10]
+    
+    blue = [0, 0, 1]
+    black = [0, 0, 0]
+
+    offset = 0
+    while True:
+        for l in range(4):
+            if offsets[l] > len(msgs[l]) - 10:
+                offsets[l] = 0
+            word = msgs[l][offsets[l]:(offsets[l]+5)]
+            cmd_WRITE_TEXT(colors[l], black, 0, l*8, word)
+            time.sleep(0.005)
+            offsets[l] += 1
+        time.sleep(0.100)
+
+# Do it    
+main()

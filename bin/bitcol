@@ -1,0 +1,49 @@
+#!/usr/bin/python
+
+# Vertically scroll lines of stdin on the display by
+# writing bit columns.
+#
+# Copyright 2014 by John K. Hinsdale <hin@alma.com>
+# Use under BSD license with above copyright notice(s) retained.
+
+import os
+ARDUINO_BASE = os.environ.get("ARDUINO_BASE")
+import sys
+sys.path.extend([ARDUINO_BASE + "/py", ARDUINO_BASE + "/font"])
+
+import time
+import fileinput
+from rgb_matrix import *
+from font_util import *
+
+def main():
+
+    cmd_SET_TIMER_DELAYS([260, 580, 1220, 15000])
+
+    lines = []
+    for l in fileinput.input():
+        lines.append(l.strip())
+    
+    cmd_BLANK_SCREEN()
+
+    red = [1, 0, 0]
+    blue = [0, 0, 1]
+    green = [0, 1, 0]
+    yellow = [1, 1, 0]
+    colors = [red, blue, green, yellow]
+
+    while lines:
+        for i in range(4):
+            write_on_line(colors[i], i, lines[i])
+            cmd_PING()
+        lines = lines[1:]
+        time.sleep(0.200)
+        
+def write_on_line(color, ln, word):
+    black = [0, 0, 0]
+    cmd_SET_TEXT_COLOR(color, black)
+    cmd_SET_TEXT_CURSOR(0, 8*ln)
+    cmd_WRITE_BITCOLS(get_word_bitcols(word))
+
+# Do it    
+main()

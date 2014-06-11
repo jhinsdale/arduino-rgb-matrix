@@ -1,0 +1,19 @@
+#!/usr/bin/python
+
+# Ping the display
+#
+# Copyright 2014 by John K. Hinsdale <hin@alma.com>
+# Use under BSD license with above copyright notice(s) retained.
+
+import sys
+import os
+ARDUINO_BASE = os.environ.get("ARDUINO_BASE")
+sys.path.extend([ARDUINO_BASE + "/py", ARDUINO_BASE + "/font"])
+
+from rgb_matrix import *
+
+def main():
+    cmd_PING()
+
+# Do it    
+main()

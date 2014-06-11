@@ -1,0 +1,54 @@
+#!/usr/bin/python
+
+# Scroll 4 lines of text on the display
+#
+# Copyright 2014 by John K. Hinsdale <hin@alma.com>
+# Use under BSD license with above copyright notice(s) retained.
+
+import os
+ARDUINO_BASE = os.environ.get("ARDUINO_BASE")
+import sys
+sys.path.extend([ARDUINO_BASE + "/py", ARDUINO_BASE + "/font"])
+
+import time
+import fileinput
+from rgb_matrix import *
+from horiz_text import TextPanel, HorizText
+
+def main():
+
+    red = [1, 0, 0]
+    blue = [0, 0, 1]
+    green = [0, 1, 0]
+    yellow = [1, 1, 0]
+    black = [0, 0, 0]
+
+    lines = [ ["Line one message",
+               red],
+              ["Line two message",
+               blue],
+              ["Line three message",
+               green],
+              ["Line four message",
+               yellow]
+              ]
+
+    tp = TextPanel(lines)
+    nlines = len(lines)
+
+    cmd_SET_TIMER_DELAYS([260, 580, 1220, 15000])
+    cmd_BLANK_SCREEN()
+    while True:
+        # Paint the screen, then scroll
+        for i in range(nlines):
+            line = tp.get_line(i)
+            cmd_SET_TEXT_COLOR(line.get_color(), black)
+            cmd_SET_TEXT_CURSOR(0, 8*i)
+            cmd_WRITE_BITCOLS(line.get_line_bitcols())
+            cmd_PING()
+            line.scroll()
+        # Wait a bit
+        # time.sleep(0.00)
+
+# Do it    
+main()
