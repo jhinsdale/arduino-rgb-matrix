@@ -89,6 +89,12 @@ RGBHinsdale matrix(A, B, C, D, CLK, LAT, OE, false);
 // WRITE_BITCOLS - Draw bit columns at cursor (count, bits1, bits2 ...)
 #define OP_WRITE_BITCOLS     14
 
+// COPY_RECT - Copy rectangle (x, y, w, h, new_x, new_y)
+#define OP_COPY_RECT         15
+
+// WIPE - Wipe (erase) the display (wipe_type, color, delay_ms)
+#define OP_WIPE              16
+
 // SLEEP - Sleep for ms
 #define OP_SLEEP             30
 
@@ -107,6 +113,16 @@ RGBHinsdale matrix(A, B, C, D, CLK, LAT, OE, false);
 
 // More ops (draw image, scroll, etc.)
 // ...
+
+// Wipe types, name refers to "direction of erasure," e.g., "DOWN"
+// blanks out lines from top to bottom.
+#define WIPE_DOWN        1
+#define WIPE_UP          2
+#define WIPE_LEFT        3
+#define WIPE_RIGHT       4
+#define WIPE_RADIAL_OUT  5
+#define WIPE_RADIAL_IN   6
+#define WIPE_DISSOLVE    7
 
 // Set bit rate
 #define BIT_RATE 115200
@@ -128,17 +144,24 @@ void demo_loop();
 void flush_input();
 void handle_op(unsigned char);
 uint8_t read_byte();
+uint16_t read_int();
+void write_byte(uint8_t);
+void write_int_hex(uint16_t);
+void write_nibble(uint8_t);
 void handle_RESET();
 void handle_BLANK_SCREEN();
 void handle_FILL_SCREEN();
 void handle_SET_TEXT_PARAMS();
 void handle_SET_TEXT_COLOR();
 void handle_WRITE_TEXT();
+void copyPixel();
 void handle_DRAW_PIXEL();
 void handle_DRAW_LINE();
 void handle_DRAW_RECT();
 void handle_XOR_RECT();
 void handle_WRITE_BITCOLS();
+void handle_COPY_RECT();
+void handle_WIPE();
 void handle_DRAW_TRIANGLE();
 void handle_DRAW_CIRCLE();
 void handle_DRAW_BITMAP();
@@ -148,7 +171,7 @@ void handle_SET_HORIZ_SCROLL();
 void handle_SET_TIMER_DELAYS();
 void handle_SLEEP();
 uint16_t read_color();
-void getPixel(int16_t, int16_t, uint8_t *, uint8_t *, uint8_t *);
+void getPixel(uint8_t, uint8_t, uint8_t *, uint8_t *, uint8_t *);
 void dump_matrix_to_serial(uint8_t, uint8_t, uint8_t, uint8_t);
 
 /* setup() **************************************************/
@@ -305,6 +328,183 @@ void handle_WRITE_BITCOLS() {
     matrix.drawTextBitColumn(bc);
   }
 }
+// copyPixel
+void copyPixel(uint8_t src_x, uint8_t src_y, uint8_t dst_x, uint8_t dst_y) {
+  uint8_t r, g, b;
+  getPixel(src_x, src_y, &r, &g, &b);
+  matrix.drawPixel(dst_x, dst_y, matrix.Color444(r, g, b));
+}
+
+// COPY_RECT (x, y, w, h, new_x, new_y)
+/* Copy a rectangle to destination.  If moved to the right and/or down
+   so that the rectangle does not fit, it will clip.  Both source and
+   destination origins must be in range, as must the source rectangle.
+*/   
+void handle_COPY_RECT() {
+  uint8_t x = read_byte();
+  uint8_t y = read_byte();
+  uint8_t w = read_byte();
+  uint8_t h = read_byte();
+  uint8_t new_x = read_byte();
+  uint8_t new_y = read_byte();
+
+  // Validate inputs
+  if ( x >= matrix.width() || y >= matrix.height()
+       || (x + w) >= matrix.width() || (y + h) >= matrix.height()
+       || new_x >= matrix.width() || new_y >= matrix.height() )
+    return;
+
+  // Clip width and height if will not fit at destination
+  if ( (new_x + w) > matrix.width() )
+    w = matrix.width() - new_x;
+  if ( (new_y + h) > matrix.height() )
+    h = matrix.height() - new_y;
+  
+  /* Copy row-wise or column-wise, and direction that will not clobber
+     data when source and destination regions overlap
+  */
+  if ( new_y < y ) {
+    // copy row-wise top-to-bottom
+    // [y ... y+h-1] -> [new_y ... new_y+h-1]
+  }
+  else if ( new_y > y ) {
+    // copy row-wise bottom-to-top
+    // [y+h-1 ... y] -> [new_y+h-1 ... y]
+  }
+  else if ( new_x < x ) {
+    // copy column-wise left-to-right
+    // [x ... x+w-1] -> [new_x ... new_x+w-1]
+  }
+  else if ( new_x > x ) {
+    // copy column-wise right-to-left
+    // [x+w-1 ... x] -> [new_x+w-1 ... new_x]
+  }
+  // Else: source and dest coords are equal - do nothing
+}
+
+// WIPE (wipe_type, color, delay_ms)
+// Note that delay_ms is time between operations, the number of which depend
+// on the wipe type (32 for "straightedge", 16 for radial, 1024 for dissolve).
+// Adjust accordingly to achieve total desired wipe time.
+void handle_WIPE() {
+  uint8_t wipe_type = read_byte();
+  uint16_t color = read_color();
+  uint16_t delay_ms = read_int();
+
+  // Row-wise and column-wise - one pass, 32 operations
+  if ( wipe_type == WIPE_UP || wipe_type == WIPE_DOWN || wipe_type == WIPE_LEFT || wipe_type == WIPE_RIGHT ) {
+    uint8_t x0_start, y0_start, x1_start, y1_start;
+    int8_t x_incr, y_incr;
+    uint8_t count;
+    if ( wipe_type == WIPE_UP ) {
+      x0_start = 0;
+      y0_start = x1_start = y1_start = 31;
+      x_incr = 0;
+      y_incr = -1;
+      count = matrix.height();
+    }
+    else if ( wipe_type == WIPE_DOWN ) {
+      x0_start = y0_start = y1_start = 0;
+      x1_start = 31;
+      x_incr = 0;
+      y_incr = 1;
+      count = matrix.height();
+    }
+    else if ( wipe_type == WIPE_LEFT ) {
+      x0_start = x1_start = y1_start = 31;
+      y0_start = 0;
+      x_incr = -1;
+      y_incr = 0;
+      count = matrix.width();
+    }
+    else if ( wipe_type == WIPE_RIGHT ) {
+      x0_start = y0_start = x1_start = 0;
+      y1_start = 31;
+      x_incr = 1;
+      y_incr = 0;
+      count = matrix.width();
+    }
+
+    // Run the loop for row-wise or column-wise wipe
+    uint8_t x0 = x0_start, y0 = y0_start, x1 = x1_start, y1 = y1_start;
+    for (int i=0; i < count; i++) {
+      matrix.drawLine(x0, y0, x1, y1, color);
+      if ( delay_ms && i < (count - 1) )
+        delay(delay_ms);
+      x0 += x_incr;
+      x1 += x_incr;
+      y0 += y_incr;
+      y1 += y_incr;
+    }
+  }
+  // Radial - one pass, 16 operations.  Draw squares in the background color.
+  else if ( wipe_type == WIPE_RADIAL_OUT || wipe_type == WIPE_RADIAL_IN ) {
+    uint8_t xy_start, s_start;
+    int xy_incr, s_incr;
+    if ( wipe_type == WIPE_RADIAL_OUT ) {
+      xy_start = 15;
+      s_start = 2;
+      xy_incr = -1;
+      s_incr = 2;
+    }
+    else if ( wipe_type == WIPE_RADIAL_IN ) {
+      xy_start = 0;
+      s_start = 32;
+      xy_incr = 1;
+      s_incr = -2;
+    }
+
+    // Run the loop for radial wipe
+    uint8_t xy = xy_start, s = s_start;
+    int count = matrix.height() / 2;
+    for (int i=0; i < count; i++) {
+      matrix.drawRect(xy, xy, s, s, color);
+      if ( delay_ms && i < (count - 1) )
+        delay(delay_ms);
+      xy += xy_incr;
+      s += s_incr;
+    }
+  }
+  // Dissolve - random iteration
+  /* To iterate randomly over the array of 32x32=1024 pixels with full
+     coverage, using no memory, we use a special version of a linear
+     congruential number generator that is guaranteed to cover every
+     element of the interval [0, 1023]
+
+     Linear congruential generator, uses (a, c, m):
+         x' = (a*x + c) % m
+     Where
+         0 < a
+         c < m
+
+     By the Hull-Dobell theorem, full coverage of all integers
+     [0...m-1] is guaranteed if we have all of:
+         c and m relatively prime (e.g. for m == 1024, c = 3^n will do)
+         a-1 divisible by every prime factor of m.  For m == 1024: a-1 is even, i.e., a is odd)
+         if m divisible by 4, then a-1 is also divisible by four. For m == 1024: a = 4*n + 1 for n > 0
+
+     So here, we will use:
+         m = 1024
+         a = 4*2 + 1 = 9
+         c = 3^4 = 81
+  */
+  else if ( wipe_type == WIPE_DISSOLVE ) {
+    uint16_t x = 0;
+    uint8_t row, col;
+    int i;
+    for ( i=0; i < 1024; i++ ) {
+      // x = (a * x + c) % m
+      // x = (9*x + 81) % 1024
+      x = (9*x + 81) & 0x3FF;
+      col = x & 0x1F; // x % 32
+      row = x >> 5; // floor(x/32)
+      matrix.drawPixel(col, row, color);
+      // Clip delay_ms at 10240 (10 seconds so it doesn't take forever)
+      if ( delay_ms > 0 && delay_ms <= 10240 && i < 1023 )
+        delay(delay_ms);
+    }
+  }
+}
 // DRAW_TRIANGLE (x0, y0, x1, y1, x2, y2, color, is_filled)
 void handle_DRAW_TRIANGLE() {
   uint8_t x0 = read_byte();
@@ -458,6 +658,12 @@ void handle_op(unsigned char op) {
       break;
     case OP_WRITE_BITCOLS:
       handle_WRITE_BITCOLS();
+      break;
+    case OP_COPY_RECT:
+      handle_COPY_RECT();
+      break;
+    case OP_WIPE:
+      handle_WIPE();
       break;
     case OP_DRAW_TRIANGLE:
       handle_DRAW_TRIANGLE();

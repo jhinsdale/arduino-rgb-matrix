@@ -30,6 +30,8 @@ OP_CODES = {
     "DRAW_BITMAP":       12,
     "XOR_RECT":          13,
     "WRITE_BITCOLS":     14,
+    "COPY_RECT":         15,
+    "WIPE":              16,
     "SLEEP":             30,
     "PING":              31,
     "SET_HORIZ_SCROLL":  50,
@@ -37,6 +39,15 @@ OP_CODES = {
     "DUMP_MATRIX":      250,
     "DUMP_MATRIX_RECT": 251,
 }
+
+# Wipe types
+WIPE_DOWN          = 1
+WIPE_UP            = 2
+WIPE_LEFT          = 3
+WIPE_RIGHT         = 4
+WIPE_RADIAL_OUT    = 5
+WIPE_RADIAL_IN     = 6
+WIPE_DISSOLVE      = 7
 
 ############ Commands
 
@@ -89,6 +100,23 @@ def cmd_WRITE_BITCOLS(bc_array):
     write_byte(ser, len(bc_array))
     for b in bc_array:
         write_byte(ser, b)
+    close_serial(ser)
+
+# COPY_RECT(x, y, w, h, new_x, new_y)
+def cmd_COPY_RECT(x, y, w, h, new_x, new_y):
+    ser = get_serial()
+    write_byte(ser, OP_CODES["COPY_RECT"])
+    write_bytes(ser, [x, y, w, h, new_x, new_y])
+    close_serial(ser)
+
+# WIPE(wipe_type, color, wipe_time_ms)
+def cmd_WIPE(wipe_type, rgb, wipe_time):
+    ser = get_serial()
+    write_byte(ser, OP_CODES["WIPE"])
+    write_byte(ser, wipe_type)
+    write_bytes(ser, rgb)
+    write_int(ser, wipe_time)
+    close_serial(ser)
 
 # WRITE_TEXT (color, line)
 def cmd_WRITE_TEXT(fg_rgb, bg_rgb, x, y, text):
